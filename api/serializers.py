@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Assignment, Question, Choice
+from .models import Assignment, Question, Choice, GradedAssignment
 from users.models import User
 
 class StringSerializer(serializers.StringRelatedField):
@@ -41,22 +41,47 @@ class AssignmentSerializer(serializers.ModelSerializer):
             newQ.question = q['title']
             newQ.order = order
             newQ.save()
-        
+
             for c in q['choices']:
                 newC = Choice()
                 newC.title = c
                 newC.save()
                 newQ.choices.add(newC)
-            
+
             newQ.answer = Choice.objects.get(title=q['answer'])
             newQ.assignment = assignment
             newQ.save()
             order += 1
             return assignment
+
+
+class GradedAssignmentSerializer(serializers.ModelSerializer):
+    student = StringSerializer(many=False)
+
+    class Meta:
+        model = GradedAssignment
+        fields = '__all__'
+
+    def create(self, request):
+        data = request.data
+        print(data)
+
+        assignment = Assignment.objects.get(id=data['asntId'])
+        student = User.objects.get(username=data['username'])
+
+        graded_asnt = GradedAssignment()
+        graded_asnt.assignment = assignment
+        graded_asnt.student = student
+
+        questions = [q for q in assignment.questions.all()]
+        answers = [data['answers'][a] for a in data['answers']]
+
+        for i in range(len(questions)):
+            if questions[i].answer.title == answers[i]:
+                answer_correct_count += 1
+            i += 1
         
-
-
-
-
-
-    
+        grade = answered_correct_count / len(questions)
+        graded_asnt.grade = grade
+        graded_asnt.save()
+        return graded_asnt        
